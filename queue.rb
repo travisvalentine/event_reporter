@@ -1,6 +1,9 @@
 class Queue
   PRINT_BY_COMMANDS = ["last_name", "first_name",
                        "email", "zipcode", "city", "state", "address"]
+
+  RESULTS_FROM_PRINT_BY = ["last_name", "first_name",
+                       "email_address", "zipcode", "city", "state", "street"]
   CSV_OPTIONS = { :headers => true, :header_converters => :symbol }
 
   def call(parameters, command)
@@ -29,11 +32,12 @@ class Queue
       false
     elsif parameters[0] == "print"
       parameters.count == 1 ||
-        (parameters[1] == "by" &&
-          parameters.count == 3)
+        parameters[1] == "by" &&
+          parameters.count == 3
     elsif parameters[0] == "save"
       parameters[1] == "to" &&
-        parameters[2] =~ /\.csv$/ && parameters.count == 3
+        parameters[2] =~ /\.csv$/ &&
+          parameters.count == 3
     else
       true
     end
@@ -53,80 +57,65 @@ class Queue
       print_queue_by_attribute(parameters)
     else
       if @queue.count > 0
-        printf "LAST NAME \t  FIRST NAME \t  " +
-               "EMAIL \t\t\t  ZIPCODE \t  CITY \t\t  STATE \t  ADDRESS\n"
-        @queue.each do |attendee|
-          puts "#{attendee.last_name}".ljust(10) + "\t" +
-               "#{attendee.first_name}".ljust(10) + "\t" +
-               "#{attendee.email_address}".ljust(10) + "\t" +
-               "#{attendee.zipcode}".ljust(10) + "\t" +
-               "#{attendee.city}".ljust(10) + "\t" +
-               "#{attendee.state}".ljust(10) + "\t" +
-               "#{attendee.street}".ljust(10)
-
-          #attendee.headers.each
-          #{|header| printf attendee.send(header).ljust(10) + "\t" }
-        end
-
-        #@queue.each {|attendee| attendee }
-        #@queue.select { |attendee| attendee.to_s }
-
+        print_queue_results
       elsif @queue.count == 0
         "There is nothing to print because your queue is empty."
       end
     end
   end
 
+  def print_queue_results
+    printf "LAST NAME \t  FIRST NAME \t  " +
+           "EMAIL \t\t\t  ZIPCODE \t  CITY \t\t  STATE \t  ADDRESS\n"
+    print_tab_delimited
+  end
+
+  def print_tab_delimited
+    @queue.each do |attendee|
+      justify_results = RESULTS_FROM_PRINT_BY.map do |attribute|
+        attendee.send(attribute.to_sym).ljust(10)
+      end
+      puts justify_results.join("\t")
+    end
+  end
+
   def print_queue_by_attribute(parameters)
-    case parameters[2]
-    when 'last_name' then
-      sort = @queue.sort_by{|attendee| attendee.last_name}
-    when 'first_name' then
-      sort = @queue.sort_by{|attendee| attendee.first_name}
-    when 'email' then
-      sort = @queue.sort_by{|attendee| attendee.email}
-    when 'zipcode' then
-      sort = @queue.sort_by{|attendee| attendee.zipcode}
-    when 'city' then
-      sort = @queue.sort_by{|attendee| attendee.city}
-    when 'state' then
-      sort = @queue.sort_by{|attendee| attendee.state}
-    when 'address' then
-      sort = @queue.sort_by{|attendee| attendee.address}
-    else
-      "Try one of these instead: #{PRINT_BY_COMMANDS}"
-    end
-
+    sort = @queue.sort_by { |attendee| attendee.send(parameters[2])}
     sort.each do |attendee|
-      printf "#{attendee.last_name}".ljust(10) + "\t" +
-               "#{attendee.first_name}".ljust(10) + "\t" +
-               "#{attendee.email_address}".ljust(10) + "\t" +
-               "#{attendee.zipcode}".ljust(10) + "\t" +
-               "#{attendee.city}".ljust(10) + "\t" +
-               "#{attendee.state}".ljust(10) + "\t" +
-               "#{attendee.street}".ljust(10) + "\n"
+      justify_results = RESULTS_FROM_PRINT_BY.map do |attribute|
+        attendee.send(attribute.to_sym).ljust(10)
+      end
+      puts justify_results.join("\t")
     end
-
   end
 
   def save_the_queue(parameters, filename)
     if parameters[1] == "to" &&
          parameters[2] =~ /\.csv$/ &&
           parameters.count == 3
-      output = CSV.open(filename, "w", CSV_OPTIONS)
       if @queue.count >= 1
-        output << @queue.first.headers
-        @queue.each do |attendee|
-          output << attendee.headers.collect { |header| attendee.send(header) }
-        end
+        fill_the_queue(parameters, filename)
       elsif @queue.count == 0
-        output << ['regdate', 'first_name', 'last_name', 'email_address',
-                   'homephone', 'street', 'city', 'state', 'zipcode']
+        add_placeholder_headers(parameters, filename)
       end
-      output.close
       "Created and saved '#{filename}' to #{Dir.pwd.to_s}."
     else
     end
   end
 
+  def fill_the_queue(parameters, filename)
+    output = CSV.open(filename, "w", CSV_OPTIONS)
+    output << @queue.first.headers
+    @queue.each do |attendee|
+      output << attendee.headers.collect { |header| attendee.send(header) }
+    end
+    output.close
+  end
+
+  def add_placeholder_headers(parameters, filename)
+    output = CSV.open(filename, "w", CSV_OPTIONS)
+    output << ['regdate', 'first_name', 'last_name', 'email_address',
+               'homephone', 'street', 'city', 'state', 'zipcode']
+    output.close
+  end
 end
